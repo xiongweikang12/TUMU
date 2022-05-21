@@ -1,12 +1,15 @@
 # TODO 行车延误调查
 import math
 import operator
+import os
 import re
 from functools import reduce
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from functools import lru_cache
+from scipy import integrate
+
 
 plt.rcParams['font.sans-serif'] = ['SimHei']  # 正常显示正文标签
 plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
@@ -15,7 +18,7 @@ plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
 # TODO 输入输出法调查延误，读取来往车辆，计算相关参数，延误，绘制图形
 class Trans_IO:
 
-    def __init__(self, list1):
+    def __init__(self, list1:[tuple,tuple]):
         """
         :param list1: list[tuple1,tuple2]
         tuple1:到达车数
@@ -32,9 +35,25 @@ class Trans_IO:
         self.come_sum = self.get_come_data()
         self.go_sum = self.get_go_data()
         self.time_gap = self.count_time_gap()
+        self.__able_though = None
+        self.__though_time = None
         self.compare_with()
-        self.draw_chart()  # 两个函数拟合后的数据
-        self.show_info()
+        self.x_start,self.x_end=self.draw_chart()  # 两个函数拟合后的数据
+        a,b=self.show_info()
+
+    @property
+    def able_though(self):
+        return self.__able_though
+    @able_though.setter
+    def able_though(self,n):
+        self.__able_though=n
+    @property
+    def though_time(self):
+        return self.__though_time
+    @though_time.setter
+    def though_time(self,n):
+        self.__though_time=n
+
 
     def get_come_data(self):
         for i in self.come_data:
@@ -55,6 +74,7 @@ class Trans_IO:
               .format(self.come_sum, self.go_sum))
         print(self.come_data_fit, self.go_data_fit)
 
+        return self.come_data_fit,self.go_data_fit
     def count_time_gap(self):
         for i in range(1, len(self.come_sum) + 1):
             self.time_gap.append(i * 15)
@@ -64,14 +84,14 @@ class Trans_IO:
         # TODO 添加标题文本，x,y轴，箭头标签
         plt.axis([0, 105, 0, 600])
 
-        num_come_polyfit = np.polyfit(self.time_gap, self.come_sum, 3)
+        num_come_polyfit = np.polyfit(self.time_gap, self.come_sum, 2)
         num_go_polyfit = np.polyfit(self.time_gap, self.go_sum, 1)
 
         funtion_come_p = np.poly1d(num_come_polyfit)
         funtion_go_p = np.poly1d(num_go_polyfit)
 
         self.come_data_fit, self.go_data_fit = \
-            [funtion_come_p[i] for i in range(3, -1, -1)], \
+            [funtion_come_p[i] for i in range(2, -1, -1)], \
             [funtion_go_p[i] for i in range(1, -1, -1)]
 
         # 拟合函数的系数
@@ -81,6 +101,9 @@ class Trans_IO:
         full_delay_cars = self.come_sum[full_num] - self.go_sum[full_num]  # 车数
         able_though = (15 / self.go_data[full_num])  # 通行能力
         though_time = full_delay_cars * able_though  # 通行时间
+        though_time_siganl=1/able_though #单个通过时间
+        self.able_though=able_though
+        self.though_time=though_time
         # print(though_time,full_delay_cars,self.come_sum[full_num])
 
         print("堵塞开始时刻 :{},阻塞开始消失 :{}".format(X_time_start, X_time_end))
@@ -131,6 +154,7 @@ class Trans_IO:
         plt.xlabel("时间")
         plt.ylabel("累计车辆/辆")
         plt.show()
+        return X_time_start,X_time_end
 
     def compare_with(self):
         # TODO 获取信息，得到堵塞形况
@@ -149,14 +173,27 @@ class Trans_IO:
             # 阻塞开始消失
 
         return self.time_gap[i], self.time_gap[j], self.time_gap[i + 1], i + 1
+        # 堵塞开始时刻 ,阻塞开始消失,瓶颈通过，瓶颈序号
 
-    def next_pass(self):
-        pass
-        # TODO 积分延误车数
-        # 平均行驶时间=总延误时数/通行量
-        # 无阻塞时
-        # 平均延误
-        # 平均每辆车延误 #sh #
+    # def next_pass(self):
+    #
+    #     # TODO 积分延误车数
+    #     # 平均行驶时间=总延误时数/通行量
+    #     # 无阻塞时
+    #     # 平均延误
+    #     # 平均每辆车延误 #sh #
+    #
+    #     come_fit=self.come_data_fit #到达车数的函数拟合
+    #     go_fit=self.come_data_fit #离去车数的函数拟合
+    #     def ding_fun(x):
+    #         f_full_y = reduce(lambda x, y: x + y,
+    #                           [come_fit[i] * math.pow(x,[j in range(len(come_fit),-1,-1)][i])
+    #                            for i in range(len(come_fit))])
+    #
+
+
+
+
 
 
 # TODO 交叉口调查延误，读取excel，计算相关参数延误
@@ -166,15 +203,16 @@ class Trans_cross:
         self.believe_section = 0.9
         self.K_double = 2.7
         self.time_interval = 15
+        self.file_name=r'D:\python\pythonProject4\TUMU\Trans_Engineering\transport_string_factor\stu.xls'
+        self.sheet_name="stu"
         self.open_chart()
         self.count_all()
         self.show_content()
-
         # self.sum_stop_car,self.sum_nostop_car,self.all_car\
         #     =self.open_chart()
 
     def open_chart(self):
-        sheet_work = pd.read_excel(r'D:\python\pythonProject4\transport_string_factor\stu.xls')
+        sheet_work = pd.read_excel(io=self.file_name,sheet_name=self.sheet_name)
         ser_stop_car = sheet_work['停止车辆'].values
         ser_nostop_car = sheet_work['不停车辆'].values
         car_all = sheet_work.iloc[:, :-2]
@@ -199,6 +237,9 @@ class Trans_cross:
               .format(self.sum_all_car, self.sum_stop_car, self.sum_nostop_car
                       , self.all_delay, self.average_car_stop, self.average_car_cross
                       , self.stop_prior * 100, self.stop_diff_prior * 100))
+
+    def open_excel(self):
+        os.system(self.file_name)
 
 
 # TODO 浮动车调查速度，读取来往数据，计算速度相关参数,（调查整条道路两个方向）
@@ -531,3 +572,4 @@ class Trans_BasicQ:
 @property：属性方法，把方法变成一个静态属性，调用和访问实例属性的方式一样 object.funtion
 装饰器：接受函数作为参数做点事情，返回一个函数，闭包思想
 """
+
