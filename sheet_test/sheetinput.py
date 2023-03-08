@@ -1,3 +1,6 @@
+import math
+import os
+
 import pandas as pd
 import numpy as np
 import xlrd as xd
@@ -10,7 +13,7 @@ from xlutils.copy import copy
 
 #TODO 导入对应的sheet
 
-data=xd.open_workbook(filename='testwork.xls') #xlrd对象
+data=xd.open_workbook('allpath/dir1/testwork.xls') #xlrd对象
 new_data=copy(data)#将xlrd 对象转化为xlwt对象
 tableli=data.sheets()[0]
 nowcol=tableli.nrows+1 #全局变量当前写入行数
@@ -18,6 +21,11 @@ print(tableli.nrows)
 namdot=[str(tableli.cell_value(1,i)) for i in range(1,tableli.nrows-2)]
 titleHeadUpDown=['下行上客数','下行下客数目','车站','上行上客数','上行下客数']
 titleHeadsiding=['下行','区间','上行']
+titleHeadtime=['时段','客流分布系数','全日最大断面客流量','全日分时开行列车数','行车间隔(min)']
+timeBlock=[[str(i)+':00' for i in range(5,24)][j]+'--'+[str(i)+':00' for i in range(5,24)][j+1] for j in range(len([str(i)+':00' for i in range(5,24)])-1)] #时段列表
+peopleStringsnum=[0.18,0.45,1,0.73,0.49,0.52,0.57,0.52,0.55,0.59,0.65,0.71,0.92,0.70,0.35,0.25,0.21,0.16]
+
+addlist=[200,224]
 
 
 #索引8个一组
@@ -135,11 +143,11 @@ def DataProcess(dataProcessed,numEveryone)->list:
         return sumArray
 
     downUpnum=downUpfunction()
-    Updownnum=upDown()
+    Updownnum=upup()
     downdownnum=downdown()
-    upupnum=upup()
+    upupnum=upDown()
     downall = [downUpnum[i] - downdownnum[i] for i in range(len(downdownnum)-1)]
-    upall = [upupnum[i] - Updownnum[i] for i in range(len(upupnum)-1)]
+    upall = [Updownnum[i] -upupnum[i] for i in range(len(upupnum)-1)]
     print(downall)
     print(upall)
     return [downUpnum,downdownnum,upupnum,Updownnum],[list(accumulate(downall)),list(accumulate(upall))]
@@ -157,14 +165,19 @@ def arrayInsert(arrary:list,target):
 #TODO 将内容填写到xls文件中
 # 继续下一步的运算
 
-def show_picture(datalist,isshow=False,lablex='区间站点',labley='各区间断面客流量',titlenoow='断面客流量'):
+def show_picture(datalist,sheetIndex,isshow=False,lablex='区间站点',labley='各区间断面客流量',titlenoow='断面客流量'):
+    print(data.sheet_names()[sheetIndex])
     str_path=[namdot[i]+'-'+namdot[i+1] for i in range(len(namdot)-1)]
-    nowplt=draw_hitt_graph_signal(str_path,label_x=lablex,label_y=labley,title_=titlenoow,is_average=False)
+    nowplt=draw_hitt_graph_signal(str_path,datalist,label_x=lablex,label_y=labley,title_=titlenoow+'({})'.format(data.sheet_names()[sheetIndex]),is_average=False)
     nowplt.xticks(rotation=45)
+    # nowplt.show()
+    return nowplt
+    # 存到相应文件夹中
 
 
 
-def sheet_writeIn(SheetIndex,DataInto,IntoHead,insertPart):
+
+def sheet_writeIn(SheetIndex,DataInto,IntoHead,insertPart,Indexxls):
     #xls 写入
     global nowcol
     global new_data
@@ -183,12 +196,16 @@ def sheet_writeIn(SheetIndex,DataInto,IntoHead,insertPart):
         sheet.write(nowcol,i+1,IntoHead[i])
     nowcol+=1
     #写入数据 行为列,列为行
-    arrayInsert(DataInto,insertPart) #插入
+    if (len(insertPart)==0):
+        pass
+    else:
+        arrayInsert(DataInto,insertPart) #插入
+
     for i in range(len(DataInto)):
         for j in range(len(DataInto[0])):
             sheet.write(j+nowcol,i+1,DataInto[i][j])
     nowcol+=len(DataInto[0])
-    new_data.save('testkeep.xls')
+    new_data.save('allpath/dir{}/testkeep.xls'.format(Indexxls))
 
 
 
@@ -200,27 +217,71 @@ def sheet_writeIn(SheetIndex,DataInto,IntoHead,insertPart):
 # 子文件夹里面有相应的xls,
 # 每个sheet操作完产生对应的图片保存在其子文件夹路径下递增命名)
 
+def start_(indexls,index,add):
+    a = conputeSheet(sheetdiff1[index])
+    c, d = DataProcess(a, add)
+    # print(c, d)
+    # print(len(c), len(d))
+    lablex = '区间站点'
+    labley = '各区间断面客流量'
+    show_picture(d[0], sheetIndex=index).savefig('allpath/dir{}/上行{}.png'.format(indexls,index+1))
+    show_picture(d[1], sheetIndex=index).savefig('allpath/dir{}/下行{}.png'.format(indexls,index+1))
+    maxpeople=max(d[1])*0.1
+    timePeople=list(map(lambda x:x*maxpeople,peopleStringsnum))
+
+    def numadjust(num,index):
+        if (math.ceil(num)<6 and 13<=index<=17):
+            return 6
+        elif(6<math.ceil(num)<10 and 13<=index<=17):
+            return 10
+        elif(math.ceil(num)<6 and index<=1):
+            return 6
+        else:
+            return math.ceil(num)
+
+    def timeget(num):
+        lownum=math.floor(num)
+        otherpath=num-lownum
+        if (otherpath==0):
+            return '{}min'.format(lownum)
+        else:
+            return '{}min{}s'.format(lownum,math.ceil(otherpath*60))
 
 
 
 
+    carnum=[numadjust(j/(310*6),i) for i,j in enumerate(timePeople)]
+    timeinterva=[timeget(60/i) for i in carnum]
+    allinto=[timeBlock,peopleStringsnum,timePeople,carnum,timeinterva]
+    print(allinto)
 
 
-a=conputeSheet(sheetdiff1[0])
-c,d=DataProcess(a,200)
-print(c,d)
-print(len(c),len(d))
-lablex='区间站点'
-labley='各区间断面客流量'
-k=draw_hitt_graph_signal([namdot[i]+'-'+namdot[i+1] for i in range(len(namdot)-1)],d[0],label_x=lablex,label_y=labley,is_average=False)
-k.xticks(rotation=45)
-kk=draw_hitt_graph_signal([namdot[i]+'-'+namdot[i+1] for i in range(len(namdot)-1)],d[1],label_x=lablex,label_y=labley,is_average=False)
-kk.xticks(rotation=45)
-kk.show()
-kk.show()
-print(d)
 
-sheet_writeIn(0,c,titleHeadUpDown,namdot)
-sheet_writeIn(0,d,titleHeadsiding,[namdot[i]+'-'+namdot[i+1] for i in range(len(namdot)-1)])
+    sheet_writeIn(index, c, titleHeadUpDown, namdot,Indexxls=indexls)
+    sheet_writeIn(index, d, titleHeadsiding, [namdot[i] + '-' + namdot[i + 1] for i in range(len(namdot) - 1)],Indexxls=indexls)
+    sheet_writeIn(index,allinto,titleHeadtime,[],Indexxls=indexls)
+
+
+for i,j in enumerate(os.listdir(r'D:\python\pythonProject4\sheet_test\allpath')):
+    print(i,j)
+    if(i==0):
+        for k in range(8):
+            start_(i+1,k,addlist[i])
+            nowcol = tableli.nrows
+        continue
+    else:
+        data = xd.open_workbook('allpath/{}/testwork.xls'.format(j))
+        new_data = copy(data)  # 将xlrd 对象转化为xlwt对象
+        tableli = data.sheets()[0]
+        nowcol = tableli.nrows + 1  # 全局变量当前写入行数
+        print(tableli.nrows)
+        namdot = [str(tableli.cell_value(1, i)) for i in range(1, tableli.nrows - 2)]
+        for k in range(8):
+            start_(i+1,k,addlist[i])
+            nowcol=tableli.nrows
+
+
+
+
 
 
