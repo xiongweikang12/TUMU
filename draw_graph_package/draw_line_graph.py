@@ -11,6 +11,18 @@ def normoal_draw_line1(list_str_x,list_y,label_x=" ",label_y=" ",title_=None):
                      labelx=label_x,labely=label_y,
                      title=title_)
 
+"""
+
+list1=[i for i in range(1,15)]
+list2=[4,4,5,5,6,5,4,5,4,4,5,5,4,6]
+
+a=normoal_draw_line2(list1,list2,add_average=True)
+a.title("高峰时间段车辆停靠时间") #上午6点到10
+a.ylabel("停靠时间:s")
+a.xlabel("车趟数:辆")
+a.show()
+
+"""
 
 def normoal_draw_line2(list_x,list_y,mode="ggplot",add_average=False,title=" ",xlabel="",ylabel=""):
     """
@@ -33,32 +45,46 @@ def normoal_draw_line2(list_x,list_y,mode="ggplot",add_average=False,title=" ",x
     plt.title(title)
     return plt
 
+    "风格不同"
 
 
-def mult_draw_line(list_str_x,list_mult_y,mult_Label,mark=None,xlabel=None,ylabel=None,
+def mult_draw_line(list_str_x,list_mult_y,mult_label,xlabel=None,ylabel=None,
                    title=None,rotation_x=None,rotation_y=None):
 
     if(all([isinstance(i,list) for i in list_mult_y])):
         return lines_amount(listlabelx=list_str_x,listyamount=list_mult_y,
-                            LabelList=mult_Label,marker=mark,xlabel=xlabel,
+                            LabelList=mult_label,xlabel=xlabel,
                             ylabel=ylabel,title=title,rotation_x=rotation_x,
                             rotation_y=rotation_y)
     else:
         raise Exception("list_mult_y is nesting list")
 
+    """
+    list3=["1", "2", "3"]
+    list6=[[2, 3, 5], [2, 4, 6], [2, 4, 6]]
+    k=mult_draw_line(list3,list6,['2','3','5'])
+    k.show()
+    """
 
-def signal_draw_line(list_str_x,list_signal_y,mult_Label,mark=None,xlabel=None,ylabel=None,
+
+def signal_draw_line(list_str_x,list_signal_y,mult_Label,xlabel=None,ylabel=None,
                    title=None,rotation_x=None,rotation_y=None):
 
     if isinstance(list_signal_y,list):
         return lines_amount(listlabelx=list_str_x,listyamount=[list_signal_y],
-                            LabelList=mult_Label,marker=mark,xlabel=xlabel,
+                            LabelList=mult_Label,xlabel=xlabel,
                             ylabel=ylabel,title=title,rotation_x=rotation_x,
                             rotation_y=rotation_y)
     else:
         raise Exception("list_signal_y just is a list")
 
+"""
+list3=["1", "2", "3"]
+list6=[[2, 3, 5], [2, 4, 6], [2, 4, 6]]
+k=signal_draw_line(list3,list6[0],['2','3','5'])
+k.show()
 
+"""
 
 
 
